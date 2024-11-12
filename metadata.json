@@ -1,0 +1,10 @@
+{
+   "uuid": "auto-adwaita-colors@celio.py",
+   "name": "Auto Adwaita Colors",
+   "description": "Changes the GNOME icon theme based on the accent color",
+   "version": 1,
+   "shell-version": ["47"],
+   "url": "https://www.github.com/celiopy/auto-adwaita-colors",
+   "settings-schema": "org.gnome.desktop.interface"
+}
+
