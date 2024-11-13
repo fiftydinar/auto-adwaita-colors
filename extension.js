@@ -10,12 +10,13 @@ const ICON_THEME = 'icon-theme';
 export default class AccentColorExtension extends Extension {
     constructor(metadata) {
         super(metadata);
-        this.settingsSchema = new Gio.Settings({ schema: INTERFACE_SCHEMA });
         this._accentColorChangedId = null;
     }
 
     enable() {
-        // Connect to the accent-color setting change event and store the ID
+        this.settingsSchema = new Gio.Settings({ schema: INTERFACE_SCHEMA });
+
+			  // Connect to the accent-color setting change event and store the ID
         this._accentColorChangedId = this.settingsSchema.connect(
             'changed::' + ACCENT_COLOR,
             this._onAccentColorChanged.bind(this)
@@ -35,6 +36,8 @@ export default class AccentColorExtension extends Extension {
             this.settingsSchema.disconnect(this._accentColorChangedId);
             this._accentColorChangedId = null;
         }
+
+				this.settingSchema = null;
     }
 
     _onAccentColorChanged() {
