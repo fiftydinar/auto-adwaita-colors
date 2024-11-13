@@ -37,7 +37,7 @@ export default class AccentColorExtension extends Extension {
             this._accentColorChangedId = null;
         }
 
-				this.settingSchema = null;
+				this.settingsSchema = null;
     }
 
     _onAccentColorChanged() {
