@@ -10,31 +10,36 @@ const ICON_THEME = 'icon-theme';
 export default class AccentColorExtension extends Extension {
     constructor(metadata) {
         super(metadata);
-        this.accentColorSettings = new Gio.Settings({ schema: INTERFACE_SCHEMA });
-        this.iconThemeSettings = new Gio.Settings({ schema: INTERFACE_SCHEMA });
-        this._onAccentColorChanged = this._onAccentColorChanged.bind(this);
+        this.settingsSchema = new Gio.Settings({ schema: INTERFACE_SCHEMA });
+        this._accentColorChangedId = null;
     }
 
     enable() {
-        // Connect to the accent-color setting change event
-        this.accentColorSettings.connect('changed::' + ACCENT_COLOR, this._onAccentColorChanged);
+        // Connect to the accent-color setting change event and store the ID
+        this._accentColorChangedId = this.settingsSchema.connect(
+            'changed::' + ACCENT_COLOR,
+            this._onAccentColorChanged.bind(this)
+        );
 
         // Get the initial accent color and apply the corresponding icon theme
-        let accentColor = this.accentColorSettings.get_string(ACCENT_COLOR);
+        let accentColor = this.settingsSchema.get_string(ACCENT_COLOR);
         this._setIconTheme(accentColor);
     }
 
     disable() {
-        // Optionally reset the icon-theme when the extension is disabled
-        this.iconThemeSettings.set_string(ICON_THEME, '');
+        // Reset the icon-theme when the extension is disabled
+        this.settingsSchema.set_string(ICON_THEME, 'Adwaita');
 
-        // Disconnect the signal when disabling
-        this.accentColorSettings.disconnect(this._onAccentColorChanged);
+        // Disconnect the signal using the stored ID
+        if (this._accentColorChangedId !== null) {
+            this.settingsSchema.disconnect(this._accentColorChangedId);
+            this._accentColorChangedId = null;
+        }
     }
 
     _onAccentColorChanged() {
         // When the accent color changes, get the new color and update the icon theme
-        let accentColor = this.accentColorSettings.get_string(ACCENT_COLOR);
+        let accentColor = this.settingsSchema.get_string(ACCENT_COLOR);
         this._setIconTheme(accentColor);
     }
 
@@ -42,7 +47,7 @@ export default class AccentColorExtension extends Extension {
         if (color) {
             // Construct the new icon theme name
             let iconTheme = color === 'blue' ? 'Adwaita' : `Adwaita-${color}`;
-            this.iconThemeSettings.set_string(ICON_THEME, iconTheme);
+            this.settingsSchema.set_string(ICON_THEME, iconTheme);
         }
     }
 }
