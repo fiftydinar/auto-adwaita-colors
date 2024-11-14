@@ -1,24 +1,25 @@
 import Gtk from 'gi://Gtk';
 import Adw from 'gi://Adw';
 import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
+import Gio from 'gi://Gio';
 import { ExtensionPreferences, gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 export default class AccentColorExtensionPrefs extends ExtensionPreferences {
     fillPreferencesWindow(window) {
-        // Create the main preferences page
+        window._settings = this.getSettings();
+
         const page = new Adw.PreferencesPage({
             title: _('General'),
             icon_name: 'dialog-information-symbolic',
         });
         window.add(page);
 
-        // Create a preferences group for Adwaita-Colors setup
         const group = new Adw.PreferencesGroup({
             title: _('Adwaita-Colors Installation'),
         });
         page.add(group);
 
-        // Description label
         const descriptionLabel = new Gtk.Label({
             label: _("This extension needs Adwaita-Colors icons installed."),
             xalign: 0,
@@ -26,93 +27,102 @@ export default class AccentColorExtensionPrefs extends ExtensionPreferences {
         descriptionLabel.add_css_class('dim-label');
         group.add(descriptionLabel);
 
-        // Create a row for the Adwaita-Colors block
         const row = new Adw.ActionRow({
             title: _('Adwaita-Colors'),
             subtitle: _('Auto-installs icon themes'),
         });
 
-        // Add a button to the row with download functionality
+        // Add Download button
         const downloadButton = new Gtk.Button({
             label: _('Download'),
             valign: Gtk.Align.CENTER,
         });
-
-        // Connect the download button click action
         downloadButton.connect('clicked', () => {
-            this.handleDownload();
+            this.handleDownload(window);
         });
-
         row.add_suffix(downloadButton);
+
+        // Label to display the current version
+        const versionLabel = new Gtk.Label({
+            label: this.getCurrentVersionLabel(window),
+            xalign: 0,
+            use_markup: true,
+        });
+        row.add_suffix(versionLabel);
+
         group.add(row);
     }
 
-    // Method to handle the download
-    handleDownload() {
+    handleDownload(window) {
         const iconsDir = `${GLib.get_home_dir()}/.local/share/icons`;
         const repoUrl = 'https://github.com/dpejoh/Adwaita-colors/archive/refs/heads/main.zip';
         const tempZipFile = GLib.get_tmp_dir() + '/adwaita-colors.zip';
 
-        // Ensure the icons directory exists
         GLib.mkdir_with_parents(iconsDir, 0o755);
 
-        // Spawn the wget process asynchronously
         const [success, pid] = GLib.spawn_async(null, ['wget', '-O', tempZipFile, repoUrl], null, GLib.SpawnFlags.SEARCH_PATH, null);
 
         if (success) {
-            // Wait for the download process to complete
-            GLib.child_watch_add(GLib.PRIORITY_DEFAULT, pid, () => {
-                // Extracting ZIP file
-                this.extractZip(tempZipFile, iconsDir);
+            GLib.child_watch_add(GLib.PRIORITY_DEFAULT, pid, async () => {
+                await this.extractZip(tempZipFile, iconsDir);
+                const latestVersion = this.fetchLatestVersion(); // Get the latest version
+                if (latestVersion) {
+                    window._settings.set_string('current-version', latestVersion);
+                } else {
+                    window._settings.set_string('current-version', "latestVersion failed");
+                }
+                this.getCurrentVersionLabel(window);  // Update label after change
             });
         } else {
-            // Error downloading the file
             this.showErrorMessage("Error downloading the file.");
         }
     }
 
-    // Method to extract the downloaded ZIP file
-    extractZip(tempZipFile, iconsDir) {
-        // Log: Extracting files to a temporary directory
-        const tempDir = GLib.get_tmp_dir() + '/adwaita-colors';
+    fetchLatestVersion() {
+        const command = `sh -c "curl -s https://api.github.com/repos/dpejoh/Adwaita-colors/releases/latest | grep -o '\\"tag_name\\": \\"[^\\"]*' | sed 's/\\"tag_name\\": \\"//'"`
+        const [res, out] = GLib.spawn_command_line_sync(command);
 
-        // Extract to the temporary directory
-        const [unzipSuccess, unzipPid] = GLib.spawn_async(null, ['unzip', tempZipFile, '-d', tempDir], null, GLib.SpawnFlags.SEARCH_PATH, null);
-
-        if (unzipSuccess) {
-            // Wait for the unzip process to complete
-            GLib.child_watch_add(GLib.PRIORITY_DEFAULT, unzipPid, () => {
-                // Move all contents of the extracted directory to the icons directory
-                const moveCommand = `mv ${tempDir}/*/* ${iconsDir}/`;
-                GLib.spawn_async(null, ['sh', '-c', moveCommand], null, GLib.SpawnFlags.SEARCH_PATH, null);
-
-                // Remove the temporary extracted directory
-                const removeDirCommand = `rmdir ${tempDir}`;
-                GLib.spawn_async(null, ['sh', '-c', removeDirCommand], null, GLib.SpawnFlags.SEARCH_PATH, null);
-
-                // Remove the temporary ZIP file
-                GLib.spawn_async(null, ['rm', tempZipFile], null, GLib.SpawnFlags.SEARCH_PATH, null);
-
-                // Log: Process complete
-                this.showSuccessMessage("Adwaita-Colors installation complete.");
-            });
+        if (res && out) {
+            return out.toString().trim();
         } else {
-            this.showErrorMessage("Error extracting the ZIP file.");
+            this.showErrorMessage("Failed to fetch the latest version.");
+            return 'Unknown';
         }
     }
 
-    // Method to show a success message
-    showSuccessMessage(message) {
-        // You can add your success message logic here, such as showing a notification
-        // This can be replaced with a dialog or a status label in the UI
-        console.log(message); // Placeholder for actual message display
+    extractZip(tempZipFile, iconsDir) {
+        return new Promise((resolve, reject) => {
+            const tempDir = GLib.get_tmp_dir() + '/adwaita-colors';
+            const [unzipSuccess, unzipPid] = GLib.spawn_async(null, ['unzip', tempZipFile, '-d', tempDir], null, GLib.SpawnFlags.SEARCH_PATH, null);
+
+            if (unzipSuccess) {
+                GLib.child_watch_add(GLib.PRIORITY_DEFAULT, unzipPid, () => {
+                    const moveCommand = `mv ${tempDir}/*/* ${iconsDir}/`;
+                    GLib.spawn_async(null, ['sh', '-c', moveCommand], null, GLib.SpawnFlags.SEARCH_PATH, null);
+                    GLib.spawn_async(null, ['rm', tempZipFile], null, GLib.SpawnFlags.SEARCH_PATH, null);
+
+                    this.showSuccessMessage("Adwaita-Colors installation complete.");
+                    resolve();
+                });
+            } else {
+                this.showErrorMessage("Error extracting the ZIP file.");
+                reject();
+            }
+        });
     }
 
-    // Method to show an error message
+    // Method to get the current version label
+    getCurrentVersionLabel(window) {
+        const currentVersion = window._settings.get_string('current-version') || 'Not installed';
+        return `<b>Current Version:</b> ${currentVersion}`;
+    }
+
+    showSuccessMessage(message) {
+        console.log(message); // Replace with your UI message logic
+    }
+
     showErrorMessage(message) {
-        // You can add your error message logic here, such as showing a notification
-        // This can be replaced with a dialog or a status label in the UI
-        console.log(message); // Placeholder for actual message display
+        console.log(message); // Replace with your UI message logic
     }
 }
 
