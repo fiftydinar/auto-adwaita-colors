@@ -1,10 +1,12 @@
 ## Auto Adwaita Colors Extension
 
-This extensions means only to automatically set the icon-theme based on accent-color set. Must have [Adwaita-colors icons](https://github.com/dpejoh/Adwaita-colors) properly installed. You can also automatically install it using the extension's preference page.
+Complementary extension for [Adwaita-colors Icons](https://github.com/dpejoh/Adwaita-colors).
+Let's you colorize your GNOME desktop with your prefered accent color!
 
 ## To-do
 
-- Add ability to notify user and download updates of Adwaita-Colors icons
+- [x] Add ability to notify user and download updates of Adwaita-Colors icons
+- [ ] Adjust preferences UI
 
 ## Installation
 
