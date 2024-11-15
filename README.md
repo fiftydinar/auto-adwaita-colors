@@ -1,44 +1,51 @@
-## Auto Adwaita Colors Extension
+# Auto Adwaita Colors
 
-Complementary extension for [Adwaita-colors Icons](https://github.com/dpejoh/Adwaita-colors).
-Let's you colorize your GNOME desktop with your prefered accent color!
+[![GitHub release](https://img.shields.io/github/v/release/celiopy/auto-adwaita-colors?style=flat-square)](https://github.com/celiopy/auto-adwaita-colors/releases)  
+A GNOME extension that **automatically changes the icon theme based on the accent color**.  
 
-## To-do
+This extension is a complementary tool for the [Adwaita-colors Icons](https://github.com/dpejoh/Adwaita-colors), making your desktop experience more dynamic and visually cohesive.
 
-- [x] Add ability to notify user and download updates of Adwaita-Colors icons
-- [ ] Adjust preferences UI
+## Features
+- Automatically syncs the icon theme with the current accent color.
+- Automatically detects updates of **Adwaita Icons** and notifies the users to update it.
+- *More to come...*
 
-## Installation
+---
 
+## 🛠 Installation  
+
+### **Option 1: From the GNOME Extensions Website**  
 [<img src="https://micheleg.github.io/dash-to-dock/media/get-it-on-ego.png" height="100">](https://extensions.gnome.org/extension/7529/auto-adwaita-colors/)
 
-1. Go to [Releases](https://github.com/celiopy/auto-adwaita-colors/releases) and download the latest zip file.
+---
 
-2. Install the extension using GNOME:
+### **Option 2: Manual Installation**  
+1. Download the latest `.zip` file from the [Release page](https://github.com/celiopy/auto-adwaita-colors/releases).  
+2. Install it using the following command: 
 ```
 gnome-extensions install --force "auto-adwaita-colors@celiopy.zip"
 ```
 
-## Install manually
+---
 
-1. Clone the repository:
-```
-git clone https://github.com/celiopy/auto-adwaita-colors
-```
+## 🤝 Contributing  
 
-2. Navigate into the directory:
-```
-cd auto-adwaita-colors
-```
+Contributions are welcome!  
+- Feel free to open issues for bug reports or feature requests.  
+- Submit pull requests to propose improvements.  
 
-3. Zip the extension:
-```
-zip -r auto-adwaita-colors@celiopy.zip .
-```
+---
 
-4. Install the extension using GNOME:
-```
-gnome-extensions install --force "auto-adwaita-colors@celiopy.zip"
-```
+## 📜 License  
 
-After installation, open the GNOME Extensions Manager and enable the extension from there.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+---
+
+## Links  
+- **GitHub Repository:** [Auto Adwaita Colors](https://github.com/celiopy/auto-adwaita-colors)  
+- **Adwaita-colors Icons Repository:** [Adwaita-colors](https://github.com/dpejoh/Adwaita-colors)
+
+---
+
+### Made with ❤️
