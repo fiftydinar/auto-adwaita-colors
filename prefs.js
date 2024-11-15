@@ -2,8 +2,8 @@ import Gtk from 'gi://Gtk';
 import Adw from 'gi://Adw';
 import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
-import Gio from 'gi://Gio';
 import { ExtensionPreferences, gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+import { fetchLatestVersion } from './utils.js'; // Adjust path as needed
 
 export default class AccentColorExtensionPrefs extends ExtensionPreferences {
     fillPreferencesWindow(window) {
@@ -37,10 +37,6 @@ export default class AccentColorExtensionPrefs extends ExtensionPreferences {
             label: _('Download'),
             valign: Gtk.Align.CENTER,
         });
-        downloadButton.connect('clicked', () => {
-            this.handleDownload(window);
-        });
-        row.add_suffix(downloadButton);
 
         // Label to display the current version
         const versionLabel = new Gtk.Label({
@@ -48,12 +44,30 @@ export default class AccentColorExtensionPrefs extends ExtensionPreferences {
             xalign: 0,
             use_markup: true,
         });
-        row.add_suffix(versionLabel);
 
+        // Label to display the fetched version result
+        const fetchResultLabel = new Gtk.Label({
+            label: _("Fetching version..."),
+            xalign: 0,
+        });
+
+        row.add_suffix(downloadButton);
+        row.add_suffix(versionLabel);
         group.add(row);
+
+        // Add the new label to show the result of fetchLatestVersion
+        group.add(fetchResultLabel);
+
+        // Fetch the latest version and set the label directly
+        this.updateVersionLabel(fetchResultLabel);
+
+        // Connect the Download button to handle download logic
+        downloadButton.connect('clicked', () => {
+            this.handleDownload(window, versionLabel);
+        });
     }
 
-    handleDownload(window) {
+    async handleDownload(window, versionLabel) {
         const iconsDir = `${GLib.get_home_dir()}/.local/share/icons`;
         const repoUrl = 'https://github.com/dpejoh/Adwaita-colors/archive/refs/heads/main.zip';
         const tempZipFile = GLib.get_tmp_dir() + '/adwaita-colors.zip';
@@ -65,29 +79,42 @@ export default class AccentColorExtensionPrefs extends ExtensionPreferences {
         if (success) {
             GLib.child_watch_add(GLib.PRIORITY_DEFAULT, pid, async () => {
                 await this.extractZip(tempZipFile, iconsDir);
-                const latestVersion = this.fetchLatestVersion(); // Get the latest version
+
+                // Fetch the latest version after the download
+                const latestVersion = await fetchLatestVersion();
                 if (latestVersion) {
                     window._settings.set_string('current-version', latestVersion);
+                    versionLabel.set_label(this.getCurrentVersionLabel(window));
                 } else {
-                    window._settings.set_string('current-version', "latestVersion failed");
+                    window._settings.set_string('current-version', "Failed to fetch version");
+                    versionLabel.set_label(this.getCurrentVersionLabel(window));
                 }
-                this.getCurrentVersionLabel(window);  // Update label after change
             });
         } else {
             this.showErrorMessage("Error downloading the file.");
         }
     }
 
-    fetchLatestVersion() {
-        const command = `sh -c "curl -s https://api.github.com/repos/dpejoh/Adwaita-colors/releases/latest | grep -o '\\"tag_name\\": \\"[^\\"]*' | sed 's/\\"tag_name\\": \\"//'"`
-        const [res, out] = GLib.spawn_command_line_sync(command);
+    async updateVersionLabel(fetchResultLabel) {
+        // Fetch the latest version or error message
+        const result = await fetchLatestVersion();
 
-        if (res && out) {
-            return out.toString().trim();
+        fetchResultLabel.set_label(result); // Display the error message if fetching fails
+        if (result && !result.startsWith("Error")) {
+            fetchResultLabel.set_label(`Latest version: ${result}`);
         } else {
-            this.showErrorMessage("Failed to fetch the latest version.");
-            return 'Unknown';
         }
+    }
+
+    showErrorMessage(message) {
+        const dialog = new Gtk.MessageDialog({
+            modal: true,
+            message_type: Gtk.MessageType.ERROR,
+            buttons: Gtk.ButtonsType.OK,
+            text: message
+        });
+        dialog.run();
+        dialog.destroy();
     }
 
     extractZip(tempZipFile, iconsDir) {
@@ -113,15 +140,11 @@ export default class AccentColorExtensionPrefs extends ExtensionPreferences {
 
     // Method to get the current version label
     getCurrentVersionLabel(window) {
-        const currentVersion = window._settings.get_string('current-version') || 'Not installed';
+        const currentVersion = window._settings.get_string('current-version') || 'NA';
         return `<b>Current Version:</b> ${currentVersion}`;
     }
 
     showSuccessMessage(message) {
-        console.log(message); // Replace with your UI message logic
-    }
-
-    showErrorMessage(message) {
         console.log(message); // Replace with your UI message logic
     }
 }

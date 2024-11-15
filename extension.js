@@ -5,12 +5,12 @@ import GObject from 'gi://GObject';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as MessageTray from 'resource:///org/gnome/shell/ui/messageTray.js';
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
+import { fetchLatestVersion } from './utils.js'; // Adjust path as needed
 
 const INTERFACE_SCHEMA = 'org.gnome.desktop.interface';
 const ACCENT_COLOR = 'accent-color';
 const ICON_THEME = 'icon-theme';
 const CHECK_INTERVAL = 3600; // Check every hour (in seconds)
-const API_URL = 'https://api.github.com/repos/dpejoh/Adwaita-colors/releases/latest';
 
 let notificationSource = null;
 
@@ -112,31 +112,27 @@ export default class AccentColorExtension extends Extension {
         // Set up a periodic function to check for updates
         this._updateCheckTimer = GLib.timeout_add_seconds(
             GLib.PRIORITY_DEFAULT, CHECK_INTERVAL, () => {
-                this._checkForUpdates();
+                this._checkForUpdates().catch(error => {
+                    logError(error, 'Periodic update check failed');
+                });
                 return GLib.SOURCE_CONTINUE; // Continue the timer
             }
         );
     }
 
-    _checkForUpdates() {
-        const latestVersion = this._fetchLatestVersion();
-        if (latestVersion) {
-            const currentVersion = this._settings.get_string('current-version');
-            if (currentVersion !== latestVersion) {
-                this._notifyUpdate();
+    async _checkForUpdates() {
+        try {
+            const latestVersion = await fetchLatestVersion();
+            if (latestVersion) {
+                const currentVersion = this._settings.get_string('current-version');
+                if (currentVersion !== latestVersion) {
+                    this._notifyUpdate();
+                } else {
+                    this._notifyLatestVersion(latestVersion);
+                }
             }
-        }
-    }
-
-    _fetchLatestVersion() {
-        const command = `sh -c "curl -s https://api.github.com/repos/dpejoh/Adwaita-colors/releases/latest | grep -o '\\"tag_name\\": \\"[^\\"]*' | sed 's/\\"tag_name\\": \\"//'"`
-        const [res, out] = GLib.spawn_command_line_sync(command);
-
-        if (res && out) {
-            return out.toString().trim();
-        } else {
-            this.showErrorMessage("Failed to fetch the latest version.");
-            return 'Unknown';
+        } catch (error) {
+            logError(error, 'Error checking for updates');
         }
     }
 
@@ -152,7 +148,21 @@ export default class AccentColorExtension extends Extension {
         });
 
         notification.connect('activated', () => {
-            this.openPrefs();
+            this.openPreferences()
+        });
+
+        source.addNotification(notification);
+    }
+
+    _notifyLatestVersion(latestVersion) {
+        const source = getNotificationSource();
+        const notification = new MessageTray.Notification({
+            source: source,
+            title: _('Up to Date'),
+            body: _('You are already on the latest version: ') + latestVersion,
+            gicon: new Gio.ThemedIcon({ name: 'dialog-information' }),
+            iconName: 'dialog-information',
+            urgency: MessageTray.Urgency.LOW,
         });
 
         source.addNotification(notification);

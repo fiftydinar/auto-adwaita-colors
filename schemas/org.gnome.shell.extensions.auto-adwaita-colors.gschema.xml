@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist gettext-domain="auto-adwaita-colors">
     <schema id="org.gnome.shell.extensions.auto-adwaita-colors" path="/org/gnome/shell/extensions/auto-adwaita-colors/">
-        
+
         <!-- The current version of the Adwaita-Colors theme installed by the extension -->
         <key name="current-version" type="s">
-            <default>"Not yer Installed"</default>
+            <default>"Not yet Installed"</default>
             <summary>Current Version of Adwaita-Colors</summary>
             <description>
                 Stores the version tag of the currently installed Adwaita-Colors theme.
@@ -14,4 +14,3 @@
 
     </schema>
 </schemalist>
-
