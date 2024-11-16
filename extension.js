@@ -15,34 +15,31 @@ const CHECK_INTERVAL = 3600; // Check every hour (in seconds)
 let notificationSource = null;
 
 const NotificationPolicy = GObject.registerClass(
-class NotificationPolicy extends MessageTray.NotificationPolicy {
-    get enable() { return true; }
-    get enableSound() { return true; }
-    get showBanners() { return true; }
-    get forceExpanded() { return false; }
-    get showInLockScreen() { return false; }
-    get detailsInLockScreen() { return false; }
-});
+    class NotificationPolicy extends MessageTray.NotificationPolicy {
+        get enable() { return true; }
+        get enableSound() { return true; }
+        get showBanners() { return true; }
+        get forceExpanded() { return false; }
+        get showInLockScreen() { return false; }
+        get detailsInLockScreen() { return false; }
+    }
+);
 
 function getNotificationSource() {
     if (!notificationSource) {
         const notificationPolicy = new NotificationPolicy();
 
         notificationSource = new MessageTray.Source({
-            // The source name (e.g. application name)
             title: _('Auto Adwaita Colors'),
-            // An icon for the source, used a fallback by notifications
-            icon: new Gio.ThemedIcon({name: 'dialog-information'}),
-            // Same as `icon`, but takes a themed icon name
+            icon: new Gio.ThemedIcon({ name: 'dialog-information' }),
             iconName: 'dialog-information',
-            // The notification policy
             policy: notificationPolicy,
         });
 
-        // Reset the notification source if it's destroyed
         notificationSource.connect('destroy', _source => {
             notificationSource = null;
         });
+
         Main.messageTray.add(notificationSource);
     }
 
@@ -126,9 +123,11 @@ export default class AccentColorExtension extends Extension {
             if (latestVersion) {
                 const currentVersion = this._settings.get_string('current-version');
                 if (currentVersion !== latestVersion) {
-                    this._notifyUpdate();
-                } else {
-                    this._notifyLatestVersion(latestVersion);
+                    this.sendNotification({
+                        title: _('Update Available'),
+                        body: _('A new version of Adwaita-Colors is available.'),
+                        onActivate: () => this.openPreferences(),
+                    });
                 }
             }
         } catch (error) {
@@ -136,34 +135,20 @@ export default class AccentColorExtension extends Extension {
         }
     }
 
-    _notifyUpdate() {
+    _sendNotification({ title, body, icon = 'dialog-information', urgency = MessageTray.Urgency.NORMAL, onActivate }) {
         const source = getNotificationSource();
         const notification = new MessageTray.Notification({
             source: source,
-            title: _('Update Available'),
-            body: _('A new version of Adwaita-Colors is available.'),
-            gicon: new Gio.ThemedIcon({ name: 'dialog-information' }),
-            iconName: 'dialog-information',
-            urgency: MessageTray.Urgency.NORMAL,
+            title: title,
+            body: body,
+            gicon: new Gio.ThemedIcon({ name: icon }),
+            iconName: icon,
+            urgency: urgency,
         });
 
-        notification.connect('activated', () => {
-            this.openPreferences()
-        });
-
-        source.addNotification(notification);
-    }
-
-    _notifyLatestVersion(latestVersion) {
-        const source = getNotificationSource();
-        const notification = new MessageTray.Notification({
-            source: source,
-            title: _('Up to Date'),
-            body: _('You are already on the latest version: ') + latestVersion,
-            gicon: new Gio.ThemedIcon({ name: 'dialog-information' }),
-            iconName: 'dialog-information',
-            urgency: MessageTray.Urgency.LOW,
-        });
+        if (onActivate) {
+            notification.connect('activated', onActivate);
+        }
 
         source.addNotification(notification);
     }

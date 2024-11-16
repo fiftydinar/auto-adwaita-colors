@@ -1,4 +1,5 @@
 import Gio from 'gi://Gio';
+
 Gio._promisify(Gio.Subprocess.prototype, 'communicate_utf8_async');
 
 async function execCommunicate(argv, input = null, cancellable = null) {
@@ -52,4 +53,36 @@ async function fetchLatestVersion() {
     }
 }
 
-export { fetchLatestVersion };
+/**
+ * Downloads a ZIP file from the given URL to the specified destination.
+ * 
+ * @param {string} url - The URL of the ZIP file to download.
+ * @param {string} destPath - The destination file path to save the downloaded ZIP.
+ * @returns {Promise<void>} Resolves when the download completes successfully.
+ * @throws {Error} Throws an error if the download fails.
+ */
+async function downloadZip(url, destPath) {
+    return new Promise((resolve, reject) => {
+        try {
+            const file = Gio.File.new_for_path(destPath);
+            const stream = file.replace(null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
+
+            const request = Gio.File.new_for_uri(url).read(null);
+
+            let chunk;
+            while ((chunk = request.read_bytes(4096, null))) {
+                if (chunk.get_size() === 0) break;
+                stream.write_bytes(chunk, null);
+            }
+
+            stream.close(null);
+            request.close(null);
+
+            resolve();
+        } catch (error) {
+            reject(new Error(`Failed to download file: ${error.message}`));
+        }
+    });
+}
+
+export { fetchLatestVersion, downloadZip };
