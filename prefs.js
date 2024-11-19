@@ -72,28 +72,72 @@ export default class AccentColorExtensionPrefs extends ExtensionPreferences {
         const repoUrl = 'https://github.com/dpejoh/Adwaita-colors/archive/refs/heads/main.zip';
         const tempZipFile = GLib.get_tmp_dir() + '/adwaita-colors.zip';
 
+        // Use metadata.path to get the extension's directory dynamically
+        const extensionRoot = this.metadata.path;  // This points to the extension's root directory
+        const scriptPath = GLib.build_filenamev([extensionRoot, 'install_adwaita_colors.sh']);  // Construct the full path to the script
+
         try {
+            // Show progress bar and initialize
             progressBar.set_visible(true);
             progressBar.set_fraction(0.0);
-            progressBar.set_text(_("Downloading..."));
+            progressBar.set_text(_("Starting..."));
             progressBar.set_show_text(true);
 
-            await downloadZip(repoUrl, tempZipFile); // Implement or adjust your download logic
-            progressBar.set_fraction(0.5);
+            const [success, pid] = GLib.spawn_async(
+                null,
+                ['sh', scriptPath, repoUrl, tempZipFile, iconsDir],
+                null,
+                GLib.SpawnFlags.SEARCH_PATH,
+                null
+            );
 
-            await this.extractZip(tempZipFile, iconsDir);
-            progressBar.set_fraction(1.0);
-            progressBar.set_text(_("Completed!"));
+            if (success) {
+                // Save the current accent color in window._settings
+                const savedAccentColor = window._settings.get_string('accent-color');
 
-            const latestVersion = await fetchLatestVersion();
-            if (latestVersion) {
-                window._settings.set_string('current-version', latestVersion);
-                versionLabel.set_label(this.getCurrentVersionLabel(window));
+                // Reset the accent color to default (blue)
+                window._settings.set_string('accent-color', 'blue');
+
+                // Monitor progress during the process
+                let progress = 0.0;
+                const progressInterval = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => {
+                    progress = Math.min(progress + 0.1, 1.0);
+                    progressBar.set_fraction(progress);
+                    progressBar.set_text(progress < 1.0 ? _("Working...") : _("Finalizing..."));
+                    return progress < 1.0; // Continue updating until 100%
+                });
+
+                GLib.child_watch_add(GLib.PRIORITY_DEFAULT, pid, (pid, status) => {
+                    GLib.Source.remove(progressInterval); // Stop progress updates
+
+                    progressBar.set_fraction(1.0);
+                    progressBar.set_text(_("Completed!"));
+
+                    fetchLatestVersion().then((latestVersion) => {
+                        if (latestVersion) {
+                            window._settings.set_string('current-version', latestVersion);
+                            versionLabel.set_label(this.getCurrentVersionLabel(window));
+                        }
+                    });
+                    if (status === 0) {
+                    } else {
+                        // progressBar.set_text(_("Failed."));
+                        // logError(new Error("Shell script failed."), 'Download/Extraction failed');
+                    }
+
+                    // Restore the original accent color after the process is finished
+                    window._settings.set_string('accent-color', savedAccentColor);
+
+                    // Hide the progress bar after completion
+                    progressBar.set_visible(false);
+                });
+            } else {
+                throw new Error("Failed to spawn shell script.");
             }
         } catch (error) {
             logError(error, 'Download failed');
-        } finally {
-            progressBar.set_visible(false);
+            progressBar.set_text(_("Error occurred"));
+            progressBar.set_visible(false); // Ensure the progress bar is hidden in case of error
         }
     }
 
@@ -104,27 +148,6 @@ export default class AccentColorExtensionPrefs extends ExtensionPreferences {
         if (result && !result.startsWith("Error")) {
             fetchResultLabel.set_label(`Latest version: ${result}`);
         }
-    }
-
-    extractZip(tempZipFile, iconsDir) {
-        return new Promise((resolve, reject) => {
-            const tempDir = GLib.get_tmp_dir() + '/adwaita-colors';
-            const [unzipSuccess, unzipPid] = GLib.spawn_async(null, ['unzip', tempZipFile, '-d', tempDir], null, GLib.SpawnFlags.SEARCH_PATH, null);
-
-            if (unzipSuccess) {
-                GLib.child_watch_add(GLib.PRIORITY_DEFAULT, unzipPid, () => {
-                    const moveCommand = `mv ${tempDir}/*/* ${iconsDir}/`;
-                    GLib.spawn_async(null, ['sh', '-c', moveCommand], null, GLib.SpawnFlags.SEARCH_PATH, null);
-                    GLib.spawn_async(null, ['rm', tempZipFile], null, GLib.SpawnFlags.SEARCH_PATH, null);
-
-                    this.showSuccessMessage("Adwaita-Colors installation complete.");
-                    resolve();
-                });
-            } else {
-                this.showErrorMessage("Error extracting the ZIP file.");
-                reject();
-            }
-        });
     }
 
     getCurrentVersionLabel(window) {

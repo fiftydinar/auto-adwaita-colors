@@ -12,5 +12,15 @@
             </description>
         </key>
 
+        <!-- The current version of the Adwaita-Colors theme installed by the extension -->
+        <key name="accent-color" type="s">
+            <default>"blue"</default>
+            <summary>Current variant of Adwaita-colors</summary>
+            <description>
+                Stores the current variant of Adwaita-colors.
+                Syncs with GNOME accent-color
+            </description>
+        </key>
+
     </schema>
 </schemalist>

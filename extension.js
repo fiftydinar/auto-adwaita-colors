@@ -49,6 +49,7 @@ function getNotificationSource() {
 export default class AccentColorExtension extends Extension {
     constructor(metadata) {
         super(metadata);
+        this._syncAccentColorId = null;
         this._accentColorChangedId = null;
         this._updateCheckTimer = null;
     }
@@ -58,14 +59,19 @@ export default class AccentColorExtension extends Extension {
         this._settings = this.getSettings();
 
         // Connect to the accent-color setting change event and store the ID
-        this._accentColorChangedId = this.settingsSchema.connect(
+        this._syncAccentColorId = this.settingsSchema.connect(
+            'changed::' + ACCENT_COLOR,
+            this._syncAccentColor.bind(this)
+        );
+
+        // Connect to the accent-color setting change event and store the ID
+        this._accentColorChangedId = this._settings.connect(
             'changed::' + ACCENT_COLOR,
             this._onAccentColorChanged.bind(this)
         );
 
         // Get the initial accent color and apply the corresponding icon theme
-        let accentColor = this.settingsSchema.get_string(ACCENT_COLOR);
-        this._setIconTheme(accentColor);
+        this._syncAccentColor();
 
         // Start the periodic update check
         this._startUpdateCheck();
@@ -77,8 +83,13 @@ export default class AccentColorExtension extends Extension {
         this.settingsSchema.set_string(ICON_THEME, 'Adwaita');
 
         // Disconnect the signal using the stored ID
+        if (this._syncAccentColorId !== null) {
+            this.settingsSchema.disconnect(this._syncAccentColor);
+            this._syncAccentColorId = null;
+        }
+
         if (this._accentColorChangedId !== null) {
-            this.settingsSchema.disconnect(this._accentColorChangedId);
+            this._settings.disconnect(this._onAccentColorChanged);
             this._accentColorChangedId = null;
         }
 
@@ -91,17 +102,50 @@ export default class AccentColorExtension extends Extension {
 		this.settingsSchema = null;
     }
 
+    _syncAccentColor() {
+        // Sync settings between global schema and _settings
+        this._settings.set_string(ACCENT_COLOR, this.settingsSchema.get_string(ACCENT_COLOR));
+    }
+
     _onAccentColorChanged() {
         // When the accent color changes, get the new color and update the icon theme
-        let accentColor = this.settingsSchema.get_string(ACCENT_COLOR);
+        let accentColor = this._settings.get_string(ACCENT_COLOR);
         this._setIconTheme(accentColor);
     }
 
-    _setIconTheme(color) {
+    async _setIconTheme(color) {
         if (color) {
-            // Construct the new icon theme name
+            // Construct the icon theme name
             let iconTheme = color === 'blue' ? 'Adwaita' : `Adwaita-${color}`;
-            this.settingsSchema.set_string(ICON_THEME, iconTheme);
+
+            // List of possible directories to check for the icon theme
+            const possiblePaths = [
+                '/var/usrlocal/share/icons',
+                '/usr/share/icons',
+                GLib.get_home_dir() + '/.local/share/icons'
+            ];
+
+            // Check each possible directory for the icon theme
+            let themeFound = false;
+            for (const path of possiblePaths) {
+                const iconThemePath = GLib.build_filenamev([path, iconTheme]);
+                if (GLib.file_test(iconThemePath, GLib.FileTest.EXISTS)) {
+                    themeFound = true;
+                    break;
+                }
+            }
+
+            // If the theme is found, apply it. Otherwise, fall back to Adwaita and notify the user
+            if (themeFound) {
+                this.settingsSchema.set_string(ICON_THEME, iconTheme);
+            } else {
+                this.settingsSchema.set_string(ICON_THEME, 'Adwaita');
+                this._sendNotification({
+                    title: _('Icon Theme Not Found'),
+                    body: _('The selected icon theme is not installed. Please install it through the preferences page.'),
+                    onActivate: () => this.openPreferences(),
+                });
+            }
         }
     }
 
@@ -123,7 +167,7 @@ export default class AccentColorExtension extends Extension {
             if (latestVersion) {
                 const currentVersion = this._settings.get_string('current-version');
                 if (currentVersion !== latestVersion) {
-                    this.sendNotification({
+                    this._sendNotification({
                         title: _('Update Available'),
                         body: _('A new version of Adwaita-Colors is available.'),
                         onActivate: () => this.openPreferences(),
