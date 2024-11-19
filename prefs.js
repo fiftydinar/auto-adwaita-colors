@@ -73,7 +73,7 @@ export default class AccentColorExtensionPrefs extends ExtensionPreferences {
         const tempZipFile = GLib.get_tmp_dir() + '/adwaita-colors.zip';
 
         // Use metadata.path to get the extension's directory dynamically
-        const extensionRoot = this.metadata.path;  // This points to the extension's root directory
+        const extensionRoot = this.path;  // This points to the extension's root directory
         const scriptPath = GLib.build_filenamev([extensionRoot, 'install_adwaita_colors.sh']);  // Construct the full path to the script
 
         try {
