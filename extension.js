@@ -72,6 +72,7 @@ export default class AccentColorExtension extends Extension {
 
         // Get the initial accent color and apply the corresponding icon theme
         this._syncAccentColor();
+        this._onAccentColorChanged();
 
         // Start the periodic update check
         this._startUpdateCheck();
@@ -115,17 +116,14 @@ export default class AccentColorExtension extends Extension {
 
     async _setIconTheme(color) {
         if (color) {
-            // Construct the icon theme name
             let iconTheme = color === 'blue' ? 'Adwaita' : `Adwaita-${color}`;
 
-            // List of possible directories to check for the icon theme
             const possiblePaths = [
                 '/var/usrlocal/share/icons',
                 '/usr/share/icons',
                 GLib.get_home_dir() + '/.local/share/icons'
             ];
 
-            // Check each possible directory for the icon theme
             let themeFound = false;
             for (const path of possiblePaths) {
                 const iconThemePath = GLib.build_filenamev([path, iconTheme]);
@@ -135,8 +133,8 @@ export default class AccentColorExtension extends Extension {
                 }
             }
 
-            // If the theme is found, apply it. Otherwise, fall back to Adwaita and notify the user
             if (themeFound) {
+                await this._loopAndUpdate(color);
                 this.settingsSchema.set_string(ICON_THEME, iconTheme);
             } else {
                 this.settingsSchema.set_string(ICON_THEME, 'Adwaita');
@@ -146,6 +144,60 @@ export default class AccentColorExtension extends Extension {
                     onActivate: () => this.openPreferences(),
                 });
             }
+        }
+    }
+
+    async _loopAndUpdate(color) {
+        let file = Gio.File.new_for_path(GLib.get_home_dir());
+
+        // Get the contents of the directory
+        let enumerator = file.enumerate_children('standard::*,metadata::*',
+          Gio.FileQueryInfoFlags.NONE,
+          null);
+        let info;
+        
+        // Initialize counters
+        let fileCount = 0;
+        let dirCount = 0;
+
+        // Iterate through the contents
+        while ((info = await enumerator.next_file(null)) !== null) {
+            await this._updateIcon(info, color);
+
+            // Count files and directories
+            if (info.get_file_type() === Gio.FileType.DIRECTORY) {
+                dirCount++;
+                // Recursively process directories if needed
+            } else {
+                fileCount++;
+            }
+        }
+
+        // Log the counts
+        console.log(`Files: ${fileCount}, Directories: ${dirCount}`);
+    }
+
+    async _updateIcon(fileInfo, color) {
+        let file = Gio.File.new_for_path(GLib.get_home_dir());
+        let childFile = file.get_child(fileInfo.get_name());
+
+        try {
+            let iconValue = fileInfo.get_attribute_string('metadata::custom-icon');
+
+            const regex = /Adwaita-(\w+)(?=\/)/;
+            if (regex.test(iconValue)) {
+                let newIconValue = iconValue.replace(regex, `Adwaita-${color}`);
+                childFile.set_attribute_string(
+                    'metadata::custom-icon', 
+                    newIconValue,
+                    Gio.FileAttributeType.STRING,
+                    null
+                );
+
+                console.log(`Updated icon to ${newIconValue}`);
+            }
+        } catch (e) {
+            console.log(`Error updating icon: ${e.message}`);
         }
     }
 
