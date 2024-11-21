@@ -214,6 +214,9 @@ export default class AccentColorExtension extends Extension {
     }
 
     async _checkForUpdates() {
+        if (! this._settings.get_boolean('notify-about-releases')) 
+            return;
+
         try {
             const latestVersion = await fetchLatestVersion();
             if (latestVersion) {

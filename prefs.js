@@ -65,6 +65,20 @@ export default class AccentColorExtensionPrefs extends ExtensionPreferences {
         downloadButton.connect('clicked', () => {
             this.handleDownload(window, versionLabel, progressBar);
         });
+
+        // Add new row for notifications
+        const notificationRow = new Adw.SwitchRow({
+            title: _('New Release Notifications'),
+            subtitle: _('Enable or disable notifications about new releases'),
+            active: window._settings.get_boolean('notify-about-releases'),
+        });
+
+        // Connect the switch state change to save the setting
+        notificationRow.connect('notify::active', () => {
+            window._settings.set_boolean('notify-about-releases', notificationRow.get_active());
+        });
+
+        group.add(notificationRow);
     }
 
     async handleDownload(window, versionLabel, progressBar) {

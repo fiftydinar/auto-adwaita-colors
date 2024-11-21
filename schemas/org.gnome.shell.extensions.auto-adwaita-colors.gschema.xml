@@ -12,6 +12,15 @@
             </description>
         </key>
 
+        <!-- Notifications -->
+        <key name="notify-about-releases" type="b">
+            <default>true</default>
+            <summary>Notifications about releases</summary>
+            <description>
+                Get notified when there is new releases to be downloaded
+            </description>
+        </key>
+
         <!-- The current version of the Adwaita-Colors theme installed by the extension -->
         <key name="accent-color" type="s">
             <default>"blue"</default>
